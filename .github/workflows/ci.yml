@@ -7,22 +7,11 @@ on:
     branches: [main]
 
 jobs:
-  build:
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'   # Or '3.x' for latest 3.x release
-      - name: Check Python version
-        run: python --version
-  
-    python-tests:
+  python-tests:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.10]
+        python-version: [3.10, 3.12]  # Add more versions if needed
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
