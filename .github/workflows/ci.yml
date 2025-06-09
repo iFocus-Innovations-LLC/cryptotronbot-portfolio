@@ -17,8 +17,8 @@ jobs:
           python-version: '3.12'   # Or '3.x' for latest 3.x release
       - name: Check Python version
         run: python --version
-jobs:
-  python-tests:
+  
+    python-tests:
     runs-on: ubuntu-latest
     strategy:
       matrix:
