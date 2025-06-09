@@ -1,0 +1,49 @@
+HTML
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CryptoTronBot.io</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=YOUR_ADSENSE_CLIENT_ID" crossorigin="anonymous"></script>
+</head>
+<body>
+    <header>
+        <h1>CryptoTronBot.io Portfolio Tracker</h1>
+        <nav>
+            <a href="/">Home</a> |
+            <a href="/login" id="loginLink">Login</a> |
+            <a href="/register" id="registerLink">Register</a> |
+            <a href="/dashboard" id="dashboardLink" style="display:none;">Dashboard</a> |
+            <a href="#" id="logoutLink" style="display:none;">Logout</a>
+        </nav>
+    </header>
+    <main>
+        <%= yield %>
+    </main>
+    <footer>
+        <p>© 2025 CryptoTronBot.io</p>
+        <p>Powered by <a href="#">Partner Service</a></p>
+    </footer>
+    <script src="/js/main.js"></script>
+</body>
+</html>
+
+
+views/index.erb:
+
+HTML
+
+
+<h2>Welcome to CryptoTronBot.io!</h2>
+<p>Track your cryptocurrency holdings with ease.</p>
+<p><a href="/dashboard">Go to Dashboard</a> (Requires Login)</p>
+
+<div class="premium-ad">
+    <h3>🚀 Go Premium!</h3>
+    <p>Unlock advanced analytics, track unlimited coins, get real-time alerts, and algorithmic rebalancing suggestions!</p>
+    <button onclick="alert('Premium sign-up not implemented yet!')">Learn More</button>
+</div>
