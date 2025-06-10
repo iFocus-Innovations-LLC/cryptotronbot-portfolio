@@ -1,179 +1,437 @@
-Python
-
+# cryptotronbot_backend/app.py
+# Main Flask application file
 
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, JWTManager
 from werkzeug.security import generate_password_hash, check_password_hash
-# from models import db, User, Holding # Assuming models.py is setup
-# from utils.crypto_api import get_current_prices # Assuming utils/crypto_api.py is setup
+from datetime import datetime, timedelta
+import requests # For fetching crypto prices
 
-# --- Placeholder for models and utils if not using separate files for simplicity ---
-# This section would typically be in models.py and utils/crypto_api.py
-
-db = SQLAlchemy() # Define db here if not imported
-
-class User(db.Model): # Simplified for this snippet
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True, nullable=False)
-    password_hash = db.Column(db.String(256)) # Increased length
-    is_premium_user = db.Column(db.Boolean, default=False)
-    # holdings relationship would be here
-
-class Holding(db.Model): # Simplified for this snippet
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    coin_id = db.Column(db.String(50), nullable=False)
-    coin_symbol = db.Column(db.String(10), nullable=False)
-    quantity = db.Column(db.Float, nullable=False)
-    # ... other fields
-
-# Placeholder for crypto price function
-def get_current_prices(coin_ids_list):
-    print(f"Fetching prices for: {coin_ids_list} (mock implementation)")
-    # In a real app, call an external API
-    mock_prices = {
-        'bitcoin': {'usd': 60000.00},
-        'ethereum': {'usd': 3000.00},
-        'dogecoin': {'usd': 0.15}
-    }
-    return {coin: data.get('usd') for coin, data in mock_prices.items() if coin in coin_ids_list}
-# --- End Placeholder ---
-
-
+# --- Application Configuration ---
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///cryptotronbot.db' # Use PostgreSQL/MySQL in production
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['JWT_SECRET_KEY'] = 'your-super-secret-key' # Change this!
-app.config['JWT_ACCESS_TOKEN_EXPIRES'] = False # For simplicity; set an expiration in production
+app.config['JWT_SECRET_KEY'] = 'your-super-strong-and-unique-secret-key' # CHANGE THIS!
+app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=24) # Token expiration
 
-db.init_app(app)
+# --- Database Setup ---
+db = SQLAlchemy(app)
 migrate = Migrate(app, db)
+
+# --- JWT Setup ---
 jwt = JWTManager(app)
 
-@app.route('/api/register', methods=['POST'])
+# --- Constants ---
+FREE_TIER_HOLDING_LIMIT = 5 # Max holdings for free users
+COINGECKO_API_URL = "https://api.coingecko.com/api/v3" # Example API
+
+# --- Models ---
+class User(db.Model):
+    __tablename__ = 'users'
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    password_hash = db.Column(db.String(256), nullable=False)
+    is_premium_user = db.Column(db.Boolean, default=False, nullable=False)
+    data_monetization_consent = db.Column(db.Boolean, default=False) # For data monetization
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    holdings = db.relationship('Holding', backref='owner', lazy='dynamic', cascade="all, delete-orphan")
+
+    def __repr__(self):
+        return f'<User {self.username}>'
+
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+
+class Holding(db.Model):
+    __tablename__ = 'holdings'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    # coin_id from CoinGecko or similar (e.g., 'bitcoin', 'ethereum')
+    coin_api_id = db.Column(db.String(100), nullable=False)
+    coin_symbol = db.Column(db.String(20), nullable=False) # e.g., 'BTC', 'ETH'
+    quantity = db.Column(db.Float, nullable=False)
+    average_buy_price = db.Column(db.Float, nullable=True) # Optional, in USD
+    exchange_wallet = db.Column(db.String(100), nullable=True) # e.g., 'Binance', 'Ledger'
+    notes = db.Column(db.Text, nullable=True) # Optional user notes
+    added_at = db.Column(db.DateTime, default=datetime.utcnow)
+    last_updated = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def __repr__(self):
+        return f'<Holding {self.quantity} {self.coin_symbol} for User ID {self.user_id}>'
+
+# --- Helper Functions ---
+def get_current_prices_from_api(coin_api_ids_list):
+    """
+    Fetches current prices for a list of coin API IDs from CoinGecko.
+    coin_api_ids_list: A list of strings, e.g., ['bitcoin', 'ethereum']
+    Returns a dictionary: {'bitcoin': 60000, 'ethereum': 3000} or None for errors
+    """
+    if not coin_api_ids_list:
+        return {}
+    ids_string = ','.join(coin_api_ids_list)
+    params = {'ids': ids_string, 'vs_currencies': 'usd'}
+    try:
+        response = requests.get(f"{COINGECKO_API_URL}/simple/price", params=params, timeout=10)
+        response.raise_for_status()  # Raises an exception for 4XX/5XX errors
+        data = response.json()
+        # Data format: {'bitcoin': {'usd': 60000}, 'ethereum': {'usd': 3000}}
+        prices = {coin_id: details['usd'] for coin_id, details in data.items() if 'usd' in details}
+        return prices
+    except requests.exceptions.RequestException as e:
+        app.logger.error(f"Error fetching crypto prices from CoinGecko: {e}")
+        # Return None for prices on error so frontend can show 'unavailable'
+        return {coin_id: None for coin_id in coin_api_ids_list}
+
+
+# --- API Routes ---
+
+# Authentication Routes
+@app.route('/api/auth/register', methods=['POST'])
 def register():
     data = request.get_json()
-    username = data.get('username')
-    password = data.get('password')
+    if not data or not data.get('username') or not data.get('email') or not data.get('password'):
+        return jsonify({"msg": "Missing username, email, or password"}), 400
+
+    username = data['username']
+    email = data['email']
+    password = data['password']
 
     if User.query.filter_by(username=username).first():
         return jsonify({"msg": "Username already exists"}), 409
+    if User.query.filter_by(email=email).first():
+        return jsonify({"msg": "Email already exists"}), 409
 
-    hashed_password = generate_password_hash(password)
-    new_user = User(username=username, password_hash=hashed_password)
-    db.session.add(new_user)
-    db.session.commit()
-    return jsonify({"msg": "User created successfully"}), 201
+    new_user = User(username=username, email=email)
+    new_user.set_password(password)
+    # New users start as non-premium by default
+    new_user.is_premium_user = False
 
-@app.route('/api/login', methods=['POST'])
+    try:
+        db.session.add(new_user)
+        db.session.commit()
+        return jsonify({"msg": "User created successfully. Please log in."}), 201
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error during registration: {e}")
+        return jsonify({"msg": "Could not create user, please try again."}), 500
+
+@app.route('/api/auth/login', methods=['POST'])
 def login():
     data = request.get_json()
-    username = data.get('username')
-    password = data.get('password')
-    user = User.query.filter_by(username=username).first()
+    if not data or not data.get('username') or not data.get('password'):
+        return jsonify({"msg": "Missing username or password"}), 400
 
-    if user and check_password_hash(user.password_hash, password):
+    user = User.query.filter_by(username=data['username']).first()
+
+    if user and user.check_password(data['password']):
         access_token = create_access_token(identity=user.id)
-        return jsonify(access_token=access_token, user_id=user.id, is_premium=user.is_premium_user)
+        return jsonify(
+            access_token=access_token,
+            user_id=user.id,
+            username=user.username,
+            is_premium=user.is_premium_user,
+            data_consent=user.data_monetization_consent
+        ), 200
     return jsonify({"msg": "Bad username or password"}), 401
 
+@app.route('/api/auth/me', methods=['GET'])
+@jwt_required()
+def get_current_user_profile():
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
+    if not user:
+        return jsonify({"msg": "User not found"}), 404
+    return jsonify(
+        id=user.id,
+        username=user.username,
+        email=user.email,
+        is_premium=user.is_premium_user,
+        data_consent=user.data_monetization_consent,
+        created_at=user.created_at.isoformat()
+    ), 200
+
+# Portfolio Routes
 @app.route('/api/portfolio', methods=['GET'])
 @jwt_required()
 def get_portfolio():
     current_user_id = get_jwt_identity()
     user = User.query.get(current_user_id)
-    if not user:
+    if not user: # Should not happen if JWT is valid but good practice
         return jsonify({"msg": "User not found"}), 404
 
-    holdings = Holding.query.filter_by(user_id=current_user_id).all()
+    holdings = user.holdings.order_by(Holding.added_at.desc()).all()
     portfolio_data = []
-    coin_ids_to_fetch = list(set([h.coin_id for h in holdings])) # Get unique coin_ids
+    coin_api_ids_to_fetch = list(set([h.coin_api_id for h in holdings]))
 
-    current_prices = {}
-    if coin_ids_to_fetch:
-        current_prices = get_current_prices(coin_ids_to_fetch)
+    current_prices_from_api = {}
+    if coin_api_ids_to_fetch:
+        current_prices_from_api = get_current_prices_from_api(coin_api_ids_to_fetch)
 
-    total_portfolio_value = 0.0
+    total_portfolio_value_usd = 0.0
 
     for holding in holdings:
-        current_price = current_prices.get(holding.coin_id)
-        value = (holding.quantity * current_price) if current_price is not None else None
-        if value is not None:
-            total_portfolio_value += value
+        current_price = current_prices_from_api.get(holding.coin_api_id)
+        current_value_usd = (holding.quantity * current_price) if current_price is not None else None
+
+        if current_value_usd is not None:
+            total_portfolio_value_usd += current_value_usd
 
         portfolio_data.append({
             "id": holding.id,
-            "coin_id": holding.coin_id,
+            "coin_api_id": holding.coin_api_id,
             "coin_symbol": holding.coin_symbol,
             "quantity": holding.quantity,
-            "average_buy_price": getattr(holding, 'average_buy_price', None), # if field exists
-            "exchange_wallet": getattr(holding, 'exchange_wallet', None), # if field exists
-            "current_price": current_price,
-            "current_value": value
+            "average_buy_price": holding.average_buy_price,
+            "exchange_wallet": holding.exchange_wallet,
+            "notes": holding.notes,
+            "added_at": holding.added_at.isoformat(),
+            "current_price_usd": current_price,
+            "current_value_usd": current_value_usd
         })
 
-    # Premium feature example
-    analytics = {}
+    # Placeholder for AI-driven analytics for premium users
+    premium_analytics = {}
     if user.is_premium_user:
-        # Perform advanced analytics (e.g., diversification, risk score)
-        analytics = {"diversification_score": 0.75, "risk_level": "medium"} # Mock data
+        premium_analytics = {
+            "portfolio_risk_assessment": "Medium", # Mock data
+            "rebalancing_suggestions": [ # Mock data
+                {"action": "Consider selling some BTC", "reason": "Over-concentration"},
+                {"action": "Consider buying some DOT", "reason": "Diversification"}
+            ],
+            "market_sentiment": "Neutral" # Mock data
+        }
 
     return jsonify({
         "holdings": portfolio_data,
-        "total_value_usd": total_portfolio_value,
-        "is_premium": user.is_premium_user,
-        "premium_analytics": analytics if user.is_premium_user else "Upgrade to premium for advanced analytics."
-    })
+        "total_portfolio_value_usd": total_portfolio_value_usd,
+        "is_premium_user": user.is_premium_user,
+        "premium_analytics": premium_analytics if user.is_premium_user else "Upgrade to Premium for advanced analytics and AI rebalancing suggestions."
+    }), 200
 
-@app.route('/api/portfolio/add_holding', methods=['POST'])
+@app.route('/api/portfolio/holdings', methods=['POST'])
 @jwt_required()
 def add_holding():
     current_user_id = get_jwt_identity()
     user = User.query.get(current_user_id)
-    data = request.get_json()
+    if not user:
+        return jsonify({"msg": "User not found"}), 404
 
-    # Freemium check: Limit number of coins for non-premium users
+    # Freemium Model: Check holding limit for non-premium users
     if not user.is_premium_user:
-        current_holdings_count = Holding.query.filter_by(user_id=current_user_id).count()
-        if current_holdings_count >= 5: # Example limit
-            return jsonify({"msg": "Free plan limit reached. Upgrade to add more holdings."}), 403
+        if user.holdings.count() >= FREE_TIER_HOLDING_LIMIT:
+            return jsonify({"msg": f"Free tier limit of {FREE_TIER_HOLDING_LIMIT} holdings reached. Please upgrade to Premium to add more."}), 403
+
+    data = request.get_json()
+    required_fields = ['coin_api_id', 'coin_symbol', 'quantity']
+    if not all(field in data for field in required_fields):
+        return jsonify({"msg": "Missing required fields (coin_api_id, coin_symbol, quantity)"}), 400
 
     try:
+        quantity = float(data['quantity'])
+        if quantity <= 0:
+            return jsonify({"msg": "Quantity must be positive"}), 400
+        
+        avg_buy_price = data.get('average_buy_price')
+        if avg_buy_price is not None:
+            avg_buy_price = float(avg_buy_price)
+            if avg_buy_price < 0:
+                 return jsonify({"msg": "Average buy price cannot be negative"}), 400
+        
         new_holding = Holding(
             user_id=current_user_id,
-            coin_id=data['coin_id'].lower(), # Store consistently
-            coin_symbol=data['coin_symbol'].upper(),
-            quantity=float(data['quantity']),
-            average_buy_price=float(data.get('average_buy_price', 0)),
-            exchange_wallet=data.get('exchange_wallet')
+            coin_api_id=data['coin_api_id'].lower(), # Standardize to lowercase
+            coin_symbol=data['coin_symbol'].upper(), # Standardize to uppercase
+            quantity=quantity,
+            average_buy_price=avg_buy_price,
+            exchange_wallet=data.get('exchange_wallet'),
+            notes=data.get('notes')
         )
         db.session.add(new_holding)
         db.session.commit()
-        return jsonify({"msg": "Holding added", "holding_id": new_holding.id}), 201
+        # Return the newly created holding's data for immediate display
+        # Fetch its price to include in the response
+        price_info = get_current_prices_from_api([new_holding.coin_api_id])
+        current_price = price_info.get(new_holding.coin_api_id)
+        current_value = (new_holding.quantity * current_price) if current_price else None
+
+        return jsonify({
+            "msg": "Holding added successfully",
+            "holding": {
+                "id": new_holding.id,
+                "coin_api_id": new_holding.coin_api_id,
+                "coin_symbol": new_holding.coin_symbol,
+                "quantity": new_holding.quantity,
+                "average_buy_price": new_holding.average_buy_price,
+                "exchange_wallet": new_holding.exchange_wallet,
+                "notes": new_holding.notes,
+                "added_at": new_holding.added_at.isoformat(),
+                "current_price_usd": current_price,
+                "current_value_usd": current_value
+            }
+        }), 201
+    except ValueError:
+        return jsonify({"msg": "Invalid data format for quantity or average_buy_price."}), 400
     except Exception as e:
         db.session.rollback()
-        return jsonify({"msg": "Error adding holding", "error": str(e)}), 400
+        app.logger.error(f"Error adding holding: {e}")
+        return jsonify({"msg": "Could not add holding, please try again."}), 500
 
-# Add routes for updating and deleting holdings (PUT /api/portfolio/holding/<id>, DELETE /api/portfolio/holding/<id>)
+@app.route('/api/portfolio/holdings/<int:holding_id>', methods=['PUT'])
+@jwt_required()
+def update_holding(holding_id):
+    current_user_id = get_jwt_identity()
+    holding = Holding.query.filter_by(id=holding_id, user_id=current_user_id).first()
+    if not holding:
+        return jsonify({"msg": "Holding not found or you do not have permission to edit it."}), 404
 
-@app.route('/api/crypto_prices_available', methods=['GET'])
-# @jwt_required() # Optional: decide if this needs auth
-def get_available_crypto_prices():
-    # This could fetch a list of supported coins from your price provider or a predefined list
-    # For demonstration, using keys from the mock price function
-    # In a real scenario, query an API like CoinGecko's /coins/list
-    supported_coins = [
-        {"id": "bitcoin", "symbol": "BTC", "name": "Bitcoin"},
-        {"id": "ethereum", "symbol": "ETH", "name": "Ethereum"},
-        {"id": "dogecoin", "symbol": "DOGE", "name": "Dogecoin"},
-        # ... add more or fetch dynamically
-    ]
-    return jsonify(supported_coins)
+    data = request.get_json()
+    try:
+        if 'quantity' in data:
+            quantity = float(data['quantity'])
+            if quantity <= 0: return jsonify({"msg": "Quantity must be positive"}), 400
+            holding.quantity = quantity
+        if 'average_buy_price' in data:
+            avg_buy_price = data.get('average_buy_price')
+            if avg_buy_price is not None:
+                avg_buy_price = float(avg_buy_price)
+                if avg_buy_price < 0: return jsonify({"msg": "Average buy price cannot be negative"}), 400
+            holding.average_buy_price = avg_buy_price # Allow setting to None
+        if 'exchange_wallet' in data:
+            holding.exchange_wallet = data['exchange_wallet']
+        if 'notes' in data:
+            holding.notes = data['notes']
+        # coin_api_id and coin_symbol are generally not updated, but if needed, add logic here.
+
+        db.session.commit()
+        # Fetch its price to include in the response
+        price_info = get_current_prices_from_api([holding.coin_api_id])
+        current_price = price_info.get(holding.coin_api_id)
+        current_value = (holding.quantity * current_price) if current_price else None
+        return jsonify({
+            "msg": "Holding updated successfully",
+            "holding": {
+                "id": holding.id,
+                "coin_api_id": holding.coin_api_id,
+                "coin_symbol": holding.coin_symbol,
+                "quantity": holding.quantity,
+                "average_buy_price": holding.average_buy_price,
+                "exchange_wallet": holding.exchange_wallet,
+                "notes": holding.notes,
+                "added_at": holding.added_at.isoformat(),
+                "last_updated": holding.last_updated.isoformat(),
+                "current_price_usd": current_price,
+                "current_value_usd": current_value
+            }
+        }), 200
+    except ValueError:
+        return jsonify({"msg": "Invalid data format for quantity or average_buy_price."}), 400
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error updating holding {holding_id}: {e}")
+        return jsonify({"msg": "Could not update holding."}), 500
+
+@app.route('/api/portfolio/holdings/<int:holding_id>', methods=['DELETE'])
+@jwt_required()
+def delete_holding(holding_id):
+    current_user_id = get_jwt_identity()
+    holding = Holding.query.filter_by(id=holding_id, user_id=current_user_id).first()
+    if not holding:
+        return jsonify({"msg": "Holding not found or you do not have permission to delete it."}), 404
+
+    try:
+        db.session.delete(holding)
+        db.session.commit()
+        return jsonify({"msg": "Holding deleted successfully"}), 200
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error deleting holding {holding_id}: {e}")
+        return jsonify({"msg": "Could not delete holding."}), 500
+
+# Crypto Data Routes (e.g., for populating dropdowns)
+@app.route('/api/cryptocurrencies', methods=['GET'])
+# @jwt_required() # Optional: decide if this needs auth, probably not for a public list
+def get_supported_cryptocurrencies():
+    """
+    Provides a list of cryptocurrencies supported for tracking.
+    In a real app, this might come from CoinGecko's /coins/list endpoint and be cached.
+    """
+    # For this example, using a simplified list.
+    # The 'id' should match what CoinGecko API expects for price lookups.
+    # You should fetch this list from CoinGecko and cache it periodically in a real app.
+    # GET https://api.coingecko.com/api/v3/coins/list
+    
+    # Mocked list for simplicity. Replace with actual API call and caching.
+    # This is a small subset. CoinGecko has thousands.
+    try:
+        # Example: Fetch top N coins by market cap
+        # response = requests.get(f"{COINGECKO_API_URL}/coins/markets", params={'vs_currency': 'usd', 'order': 'market_cap_desc', 'per_page': 100, 'page': 1}, timeout=10)
+        # response.raise_for_status()
+        # coins_market_data = response.json()
+        # supported_coins = [{"id": coin['id'], "symbol": coin['symbol'].upper(), "name": coin['name']} for coin in coins_market_data]
+        
+        # Using a static list for this example to avoid API rate limits during development/testing
+        supported_coins = [
+            {"id": "bitcoin", "symbol": "BTC", "name": "Bitcoin"},
+            {"id": "ethereum", "symbol": "ETH", "name": "Ethereum"},
+            {"id": "tether", "symbol": "USDT", "name": "Tether"},
+            {"id": "binancecoin", "symbol": "BNB", "name": "BNB"},
+            {"id": "solana", "symbol": "SOL", "name": "Solana"},
+            {"id": "usd-coin", "symbol": "USDC", "name": "USD Coin"},
+            {"id": "ripple", "symbol": "XRP", "name": "XRP"},
+            {"id": "dogecoin", "symbol": "DOGE", "name": "Dogecoin"},
+            {"id": "cardano", "symbol": "ADA", "name": "Cardano"},
+            {"id": "avalanche-2", "symbol": "AVAX", "name": "Avalanche"},
+            {"id": "shiba-inu", "symbol": "SHIB", "name": "Shiba Inu"},
+            {"id": "polkadot", "symbol": "DOT", "name": "Polkadot"},
+            {"id": "chainlink", "symbol": "LINK", "name": "Chainlink"},
+            {"id": "tron", "symbol": "TRX", "name": "TRON"},
+            {"id": "matic-network", "symbol": "MATIC", "name": "Polygon"},
+            {"id": "litecoin", "symbol": "LTC", "name": "Litecoin"},
+            {"id": "uniswap", "symbol": "UNI", "name": "Uniswap"},
+            # Add more or fetch dynamically
+        ]
+        return jsonify(supported_coins), 200
+    except requests.exceptions.RequestException as e:
+        app.logger.error(f"Failed to fetch coin list from CoinGecko: {e}")
+        return jsonify({"msg": "Could not retrieve cryptocurrency list at this time."}), 503
 
 
+# User Settings / Preferences
+@app.route('/api/user/preferences/data_consent', methods=['POST'])
+@jwt_required()
+def update_data_consent():
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
+    if not user:
+        return jsonify({"msg": "User not found"}), 404
+
+    data = request.get_json()
+    if 'consent' not in data or not isinstance(data['consent'], bool):
+        return jsonify({"msg": "Invalid payload. 'consent' (boolean) is required."}), 400
+
+    user.data_monetization_consent = data['consent']
+    try:
+        db.session.commit()
+        return jsonify({"msg": "Data consent preference updated successfully.", "consent_status": user.data_monetization_consent}), 200
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error updating data consent for user {user.id}: {e}")
+        return jsonify({"msg": "Could not update consent preference."}), 500
+
+# --- Main Execution ---
 if __name__ == '__main__':
+    # Create tables if they don't exist (for development)
+    # In production, you'd use Flask-Migrate commands:
+    # flask db init (once)
+    # flask db migrate -m "Initial migration"
+    # flask db upgrade
     with app.app_context():
-        db.create_all() # Create tables if they don't exist
+        db.create_all()
     app.run(debug=True, port=5000) # Backend runs on port 5000
