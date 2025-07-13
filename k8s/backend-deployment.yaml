@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cryptotronbot-backend
+  namespace: cryptotronbot
+  labels:
+    app: cryptotronbot
+    component: backend
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: cryptotronbot
+      component: backend
+  template:
+    metadata:
+      labels:
+        app: cryptotronbot
+        component: backend
+    spec:
+      containers:
+      - name: backend
+        image: gcr.io/YOUR_PROJECT_ID/cryptotronbot-backend:latest
+        ports:
+        - containerPort: 5000
+        env:
+        - name: FLASK_ENV
+          valueFrom:
+            configMapKeyRef:
+              name: cryptotronbot-config
+              key: FLASK_ENV
+        - name: DATABASE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: cryptotronbot-config
+              key: DATABASE_URL
+        - name: JWT_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: cryptotronbot-secrets
+              key: JWT_SECRET_KEY
+        - name: LOG_LEVEL
+          valueFrom:
+            configMapKeyRef:
+              name: cryptotronbot-config
+              key: LOG_LEVEL
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: 5000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: 5000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        volumeMounts:
+        - name: database-storage
+          mountPath: /app/instance
+      volumes:
+      - name: database-storage
+        emptyDir: {}
+      imagePullSecrets:
+      - name: gcr-secret 

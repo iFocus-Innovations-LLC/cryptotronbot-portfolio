@@ -5,85 +5,90 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CryptoTronBot - Portfolio Dashboard</title>
     <link rel="stylesheet" href="/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
     <div class="container">
-        <h2>Your Cryptocurrency Portfolio</h2>
+        <div class="dashboard-header">
+            <h2>Your Cryptocurrency Portfolio</h2>
+        </div>
         
-        <div id="portfolioSummary" class="portfolio-summary">
-            <p>Total Portfolio Value: <strong id="totalValue">$0.00</strong></p>
-            <p id="premiumStatus">Status: <span id="userPremiumStatus">Basic</span></p>
-        </div>
-
-        <div id="premiumFeaturesSection" class="premium-section" style="display:none;">
-            <h3>Premium Analytics</h3>
-            <pre id="premiumAnalyticsData"></pre>
-            <p>Algorithmic rebalancing suggestions (Premium Feature - Coming Soon!).</p>
-        </div>
-
-        <section class="add-holding-section">
-            <h3>Add New Holding</h3>
-            <form id="addHoldingForm" class="holding-form">
-                <div class="form-group">
-                    <label for="coin_id">Coin:</label>
-                    <select id="coin_id" name="coin_id" required>
-                        <option value="">Loading coins...</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="quantity">Quantity:</label>
-                    <input type="number" step="any" id="quantity" name="quantity" required min="0">
-                </div>
-                <div class="form-group">
-                    <label for="average_buy_price">Average Buy Price (USD):</label>
-                    <input type="number" step="any" id="average_buy_price" name="average_buy_price" min="0">
-                </div>
-                <div class="form-group">
-                    <label for="exchange_wallet">Exchange/Wallet (Optional):</label>
-                    <input type="text" id="exchange_wallet" name="exchange_wallet" maxlength="100">
-                </div>
-                <button type="submit" class="btn btn-primary">Add Holding</button>
-            </form>
-            <p id="addHoldingMessage" class="message"></p>
-        </section>
-
-        <section class="holdings-section">
-            <h3>Your Holdings</h3>
-            <div class="table-container">
-                <table id="holdingsTable" class="holdings-table">
-                    <thead>
-                        <tr>
-                            <th>Coin</th>
-                            <th>Symbol</th>
-                            <th>Quantity</th>
-                            <th>Avg. Buy Price</th>
-                            <th>Exchange/Wallet</th>
-                            <th>Current Price</th>
-                            <th>Current Value</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr><td colspan="8">Loading portfolio...</td></tr>
-                    </tbody>
-                </table>
+        <div class="dashboard-content">
+            <div id="portfolioSummary" class="portfolio-summary">
+                <p>Total Portfolio Value: <strong id="totalValue">$0.00</strong></p>
+                <p id="premiumStatus">Status: <span id="userPremiumStatus" class="status-badge status-basic">Basic</span></p>
             </div>
-        </section>
 
-        <div id="dataConsent" class="consent-section" style="display:none;">
-            <h4>Help Improve CryptoTronBot!</h4>
-            <p>Allow us to use your anonymized portfolio data for market research and trends analysis? This helps us improve our services and provide valuable insights to the community.</p>
-            <label class="checkbox-label">
-                <input type="checkbox" id="dataConsentCheckbox"> 
-                I consent
-            </label>
-            <button onclick="handleDataConsent()" class="btn btn-secondary">Submit Preference</button>
-        </div>
+            <div id="premiumFeaturesSection" class="premium-section" style="display:none;">
+                <h3>Premium Analytics</h3>
+                <pre id="premiumAnalyticsData"></pre>
+                <p>Algorithmic rebalancing suggestions (Premium Feature - Coming Soon!).</p>
+            </div>
 
-        <div id="taxIntegration" class="tax-section" style="display:none;">
-            <h4>Tax Reporting Made Easy!</h4>
-            <p>Integrate with our partner <a href="#" target="_blank" rel="noopener">[Tax Service Name]</a> for seamless crypto tax calculations.</p>
-            <button onclick="alert('Tax integration not implemented yet!')" class="btn btn-secondary">Connect to Tax Service</button>
+            <section class="add-holding-section">
+                <h3>Add New Holding</h3>
+                <form id="addHoldingForm" class="holding-form">
+                    <div class="form-group">
+                        <label for="coin_id">Coin:</label>
+                        <select id="coin_id" name="coin_id" class="form-control" required>
+                            <option value="">Loading coins...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="quantity">Quantity:</label>
+                        <input type="number" step="any" id="quantity" name="quantity" class="form-control" required min="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="average_buy_price">Average Buy Price (USD):</label>
+                        <input type="number" step="any" id="average_buy_price" name="average_buy_price" class="form-control" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="exchange_wallet">Exchange/Wallet (Optional):</label>
+                        <input type="text" id="exchange_wallet" name="exchange_wallet" class="form-control" maxlength="100">
+                    </div>
+                    <button type="submit" class="btn btn-primary">Add Holding</button>
+                </form>
+                <p id="addHoldingMessage" class="message"></p>
+            </section>
+
+            <section class="holdings-section">
+                <h3>Your Holdings</h3>
+                <div class="table-container">
+                    <table id="holdingsTable" class="holdings-table">
+                        <thead>
+                            <tr>
+                                <th>Coin</th>
+                                <th>Symbol</th>
+                                <th>Quantity</th>
+                                <th>Avg. Buy Price</th>
+                                <th>Exchange/Wallet</th>
+                                <th>Current Price</th>
+                                <th>Current Value</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td colspan="8">Loading portfolio...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <div id="dataConsent" class="consent-section" style="display:none;">
+                <h4>Help Improve CryptoTronBot!</h4>
+                <p>Allow us to use your anonymized portfolio data for market research and trends analysis? This helps us improve our services and provide valuable insights to the community.</p>
+                <label class="checkbox-label">
+                    <input type="checkbox" id="dataConsentCheckbox"> 
+                    I consent
+                </label>
+                <button onclick="handleDataConsent()" class="btn btn-secondary">Submit Preference</button>
+            </div>
+
+            <div id="taxIntegration" class="tax-section" style="display:none;">
+                <h4>Tax Reporting Made Easy!</h4>
+                <p>Integrate with our partner <a href="#" target="_blank" rel="noopener">[Tax Service Name]</a> for seamless crypto tax calculations.</p>
+                <button onclick="alert('Tax integration not implemented yet!')" class="btn btn-secondary">Connect to Tax Service</button>
+            </div>
         </div>
     </div>
 

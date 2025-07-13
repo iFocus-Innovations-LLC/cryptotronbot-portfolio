@@ -92,6 +92,26 @@ def get_current_prices_from_api(coin_api_ids_list):
 
 # --- API Routes ---
 
+# Health Check Route
+@app.route('/api/health', methods=['GET'])
+def health_check():
+    """Health check endpoint for Kubernetes liveness and readiness probes"""
+    try:
+        # Test database connection
+        db.session.execute('SELECT 1')
+        return jsonify({
+            "status": "healthy",
+            "timestamp": datetime.utcnow().isoformat(),
+            "database": "connected"
+        }), 200
+    except Exception as e:
+        app.logger.error(f"Health check failed: {e}")
+        return jsonify({
+            "status": "unhealthy",
+            "timestamp": datetime.utcnow().isoformat(),
+            "error": str(e)
+        }), 500
+
 # Authentication Routes
 @app.route('/api/auth/register', methods=['POST'])
 def register():
