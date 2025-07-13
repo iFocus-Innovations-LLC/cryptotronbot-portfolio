@@ -1,5 +1,6 @@
-# cryptotronbot-portfolio
-contact ifocus1776 to be added to repo
+### Cryptocurrency Portfolio Tracker: A mobile app dashboard that allows users to track their cryptocurrency holdings across different exchanges and wallets.
+
+### cryptotronbot-portfolio
 Cryptocurrency Portfolio Tracker AI agent
 
 To run the frontend (Sinatra):
