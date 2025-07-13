@@ -1,0 +1,26 @@
+# Original requirements
+Flask==2.3.3
+Flask-SQLAlchemy==3.0.5
+Flask-Migrate==4.0.5
+Flask-JWT-Extended==4.5.3
+Werkzeug==2.3.7
+requests==2.31.0
+
+# Google Cloud Security Dependencies
+google-auth==2.23.0
+google-auth-oauthlib==1.0.0
+google-auth-httplib2==0.1.1
+google-cloud-storage==2.10.0
+google-cloud-secret-manager==2.16.0
+google-cloud-sql-connector==1.2.0
+google-cloud-kms==2.16.0
+google-cloud-logging==3.8.0
+google-cloud-monitoring==2.16.0
+google-cloud-error-reporting==1.4.0
+google-cloud-iam==2.12.0
+google-cloud-resource-manager==1.10.0
+
+# Additional security dependencies
+cryptography==41.0.4
+python-dotenv==1.0.0
+psycopg2-binary==2.9.7 
