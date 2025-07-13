@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cryptotronbot-frontend
+  namespace: cryptotronbot
+  labels:
+    app: cryptotronbot
+    component: frontend
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: cryptotronbot
+      component: frontend
+  template:
+    metadata:
+      labels:
+        app: cryptotronbot
+        component: frontend
+    spec:
+      containers:
+      - name: frontend
+        image: gcr.io/YOUR_PROJECT_ID/cryptotronbot-frontend:latest
+        ports:
+        - containerPort: 4567
+        env:
+        - name: RACK_ENV
+          valueFrom:
+            configMapKeyRef:
+              name: cryptotronbot-config
+              key: RACK_ENV
+        - name: BACKEND_URL
+          valueFrom:
+            configMapKeyRef:
+              name: cryptotronbot-config
+              key: BACKEND_URL
+        - name: LOG_LEVEL
+          valueFrom:
+            configMapKeyRef:
+              name: cryptotronbot-config
+              key: LOG_LEVEL
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 4567
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 4567
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+      imagePullSecrets:
+      - name: gcr-secret 

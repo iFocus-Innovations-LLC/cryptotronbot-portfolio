@@ -1,0 +1,39 @@
+# Use Ruby 3.2 slim image
+FROM ruby:3.2-slim
+
+# Set working directory
+WORKDIR /app
+
+# Set environment variables
+ENV RACK_ENV=production
+ENV PORT=4567
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy Gemfile and Gemfile.lock
+COPY cryptotronbot_frontend/Gemfile* ./
+
+# Install Ruby dependencies
+RUN bundle install --without development test
+
+# Copy application code
+COPY cryptotronbot_frontend/ .
+
+# Create non-root user for security
+RUN useradd --create-home --shell /bin/bash app && \
+    chown -R app:app /app
+USER app
+
+# Expose port
+EXPOSE 4567
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:4567/ || exit 1
+
+# Run the application
+CMD ["bundle", "exec", "ruby", "app.rb", "-o", "0.0.0.0", "-p", "4567"] 

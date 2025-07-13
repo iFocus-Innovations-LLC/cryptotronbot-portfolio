@@ -23,6 +23,14 @@ const Utils = {
         }).format(amount || 0);
     },
 
+    formatPercentage(amount) {
+        return new Intl.NumberFormat('en-US', {
+            style: 'percent',
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        }).format(amount || 0);
+    },
+
     showMessage(element, message, type = 'info') {
         if (!element) return;
         element.textContent = message;
@@ -39,8 +47,42 @@ const Utils = {
 
     showLoading(element) {
         if (element) {
-            element.innerHTML = '<div class="loading">Loading...</div>';
+            element.innerHTML = '<div class="loading"></div><span>Loading...</span>';
         }
+    },
+
+    addLoadingState(button) {
+        if (button) {
+            button.disabled = true;
+            button.innerHTML = '<div class="loading"></div> Processing...';
+        }
+    },
+
+    removeLoadingState(button, originalText) {
+        if (button) {
+            button.disabled = false;
+            button.textContent = originalText;
+        }
+    },
+
+    animateValue(element, start, end, duration = 1000) {
+        const startTime = performance.now();
+        const startValue = parseFloat(start) || 0;
+        const endValue = parseFloat(end) || 0;
+        
+        function updateValue(currentTime) {
+            const elapsed = currentTime - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            
+            const currentValue = startValue + (endValue - startValue) * progress;
+            element.textContent = Utils.formatCurrency(currentValue);
+            
+            if (progress < 1) {
+                requestAnimationFrame(updateValue);
+            }
+        }
+        
+        requestAnimationFrame(updateValue);
     }
 };
 
@@ -102,6 +144,7 @@ class PortfolioManager {
         this.addHoldingForm = document.getElementById('addHoldingForm');
         this.addHoldingMessageEl = document.getElementById('addHoldingMessage');
         this.coinSelectEl = document.getElementById('coin_id');
+        this.submitButton = this.addHoldingForm?.querySelector('button[type="submit"]');
         
         this.initializeEventListeners();
     }
@@ -143,14 +186,31 @@ class PortfolioManager {
         if (data.holdings && data.holdings.length > 0) {
             data.holdings.forEach(holding => {
                 const row = this.holdingsTableBody.insertRow();
+                const profitLoss = holding.current_value && holding.average_buy_price ? 
+                    (holding.current_value - (holding.quantity * holding.average_buy_price)) : 0;
+                const profitLossPercent = holding.average_buy_price && holding.current_price ? 
+                    ((holding.current_price - holding.average_buy_price) / holding.average_buy_price) : 0;
+                
                 row.innerHTML = `
-                    <td>${Utils.escapeHtml(holding.coin_id)}</td>
-                    <td>${Utils.escapeHtml(holding.coin_symbol)}</td>
+                    <td>
+                        <strong>${Utils.escapeHtml(holding.coin_id)}</strong>
+                    </td>
+                    <td>
+                        <span class="status-badge status-basic">${Utils.escapeHtml(holding.coin_symbol)}</span>
+                    </td>
                     <td>${holding.quantity.toFixed(8)}</td>
                     <td>${holding.average_buy_price ? Utils.formatCurrency(holding.average_buy_price) : 'N/A'}</td>
                     <td>${Utils.escapeHtml(holding.exchange_wallet || 'N/A')}</td>
                     <td>${holding.current_price ? Utils.formatCurrency(holding.current_price) : 'Loading...'}</td>
-                    <td>${holding.current_value ? Utils.formatCurrency(holding.current_value) : 'N/A'}</td>
+                    <td>
+                        <strong>${holding.current_value ? Utils.formatCurrency(holding.current_value) : 'N/A'}</strong>
+                        ${profitLoss !== 0 ? `
+                            <br><small class="${profitLoss > 0 ? 'text-success' : 'text-danger'}">
+                                ${profitLoss > 0 ? '+' : ''}${Utils.formatCurrency(profitLoss)} 
+                                (${Utils.formatPercentage(profitLossPercent)})
+                            </small>
+                        ` : ''}
+                    </td>
                     <td>
                         <button onclick="portfolioManager.deleteHolding('${holding.id}')" 
                                 class="btn btn-danger btn-sm">Delete</button>
@@ -158,11 +218,21 @@ class PortfolioManager {
                 `;
             });
         } else {
-            this.holdingsTableBody.innerHTML = 
-                '<tr><td colspan="8">No holdings yet. Add one above!</td></tr>';
+            this.holdingsTableBody.innerHTML = `
+                <tr>
+                    <td colspan="8" style="text-align: center; padding: 2rem;">
+                        <div style="color: var(--text-secondary);">
+                            <h4>No holdings yet</h4>
+                            <p>Add your first cryptocurrency holding above!</p>
+                        </div>
+                    </td>
+                </tr>
+            `;
         }
         
-        this.totalValueEl.textContent = Utils.formatCurrency(data.total_value_usd);
+        // Animate the total value change
+        const currentValue = parseFloat(this.totalValueEl.textContent.replace(/[$,]/g, '')) || 0;
+        Utils.animateValue(this.totalValueEl, currentValue, data.total_value_usd);
     }
 
     updatePremiumFeatures(data) {
@@ -175,6 +245,7 @@ class PortfolioManager {
 
         if (premiumStatusEl) {
             premiumStatusEl.textContent = isPremium ? 'Premium' : 'Basic';
+            premiumStatusEl.className = `status-badge ${isPremium ? 'status-premium' : 'status-basic'}`;
         }
 
         if (isPremium && premiumFeaturesSection) {
@@ -235,6 +306,9 @@ class PortfolioManager {
             return;
         }
 
+        const originalButtonText = this.submitButton?.textContent || 'Add Holding';
+        Utils.addLoadingState(this.submitButton);
+
         const holdingData = {
             coin_id: coin_id,
             coin_symbol: coin_symbol,
@@ -248,40 +322,46 @@ class PortfolioManager {
                 method: 'POST',
                 body: JSON.stringify(holdingData),
             });
-            
-            const data = await response.json();
-            
+
             if (response.ok) {
-                Utils.showMessage(this.addHoldingMessageEl, data.msg || 'Holding added!', 'success');
-                this.addHoldingForm.reset();
-                this.loadPortfolio();
+                Utils.showMessage(this.addHoldingMessageEl, 'Holding added successfully!', 'success');
+                e.target.reset();
+                this.loadPortfolio(); // Refresh the portfolio
             } else {
-                Utils.showMessage(this.addHoldingMessageEl, data.msg || 'Failed to add holding.', 'error');
+                const errorData = await response.json();
+                Utils.showMessage(this.addHoldingMessageEl, 
+                    errorData.error || 'Failed to add holding', 'error');
             }
         } catch (error) {
-            Utils.showMessage(this.addHoldingMessageEl, 'Error connecting to server.', 'error');
+            Utils.showMessage(this.addHoldingMessageEl, 
+                'Network error. Please try again.', 'error');
             console.error('Error adding holding:', error);
+        } finally {
+            Utils.removeLoadingState(this.submitButton, originalButtonText);
         }
     }
 
     async deleteHolding(holdingId) {
-        if (!confirm('Are you sure you want to delete this holding?')) return;
-        
+        if (!confirm('Are you sure you want to delete this holding?')) {
+            return;
+        }
+
         try {
-            const response = await ApiService.fetchWithAuth(`${CONFIG.API_BASE_URL}/portfolio/holding/${holdingId}`, {
+            const response = await ApiService.fetchWithAuth(`${CONFIG.API_BASE_URL}/portfolio/delete_holding/${holdingId}`, {
                 method: 'DELETE',
             });
-            
-            const data = await response.json();
-            
+
             if (response.ok) {
-                alert(data.msg || 'Holding deleted successfully');
-                this.loadPortfolio();
+                Utils.showMessage(this.addHoldingMessageEl, 'Holding deleted successfully!', 'success');
+                this.loadPortfolio(); // Refresh the portfolio
             } else {
-                alert(data.msg || 'Failed to delete holding.');
+                const errorData = await response.json();
+                Utils.showMessage(this.addHoldingMessageEl, 
+                    errorData.error || 'Failed to delete holding', 'error');
             }
         } catch (error) {
-            alert('Error connecting to server.');
+            Utils.showMessage(this.addHoldingMessageEl, 
+                'Network error. Please try again.', 'error');
             console.error('Error deleting holding:', error);
         }
     }
@@ -291,8 +371,8 @@ class PortfolioManager {
 class AuthManager {
     constructor() {
         this.loginForm = document.getElementById('loginForm');
-        this.logoutLink = document.getElementById('logoutLink');
         this.loginMessageEl = document.getElementById('loginMessage');
+        this.submitButton = this.loginForm?.querySelector('button[type="submit"]');
         
         this.initializeEventListeners();
     }
@@ -301,39 +381,54 @@ class AuthManager {
         if (this.loginForm) {
             this.loginForm.addEventListener('submit', (e) => this.handleLogin(e));
         }
-        
-        if (this.logoutLink) {
-            this.logoutLink.addEventListener('click', (e) => this.handleLogout(e));
+
+        const logoutLink = document.getElementById('logoutLink');
+        if (logoutLink) {
+            logoutLink.addEventListener('click', (e) => this.handleLogout(e));
         }
     }
 
     async handleLogin(e) {
         e.preventDefault();
         
-        const username = e.target.username.value;
-        const password = e.target.password.value;
-        
+        const originalButtonText = this.submitButton?.textContent || 'Login';
+        Utils.addLoadingState(this.submitButton);
+
+        const formData = {
+            username: e.target.username.value,
+            password: e.target.password.value
+        };
+
         try {
             const response = await fetch(`${CONFIG.API_BASE_URL}/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password }),
+                body: JSON.stringify(formData)
             });
-            
-            const data = await response.json();
-            
+
             if (response.ok) {
-                localStorage.setItem(CONFIG.TOKEN_KEY, data.access_token);
+                const data = await response.json();
+                localStorage.setItem(CONFIG.TOKEN_KEY, data.token);
                 localStorage.setItem(CONFIG.USER_ID_KEY, data.user_id);
-                localStorage.setItem(CONFIG.PREMIUM_KEY, data.is_premium);
+                localStorage.setItem(CONFIG.PREMIUM_KEY, data.is_premium || false);
+                
+                Utils.showMessage(this.loginMessageEl, 'Login successful! Redirecting...', 'success');
                 ApiService.updateNav();
-                window.location.href = '/dashboard';
+                
+                setTimeout(() => {
+                    window.location.href = '/dashboard';
+                }, 1000);
             } else {
-                Utils.showMessage(this.loginMessageEl, data.msg || 'Login failed.', 'error');
+                const errorData = await response.json();
+                Utils.showMessage(this.loginMessageEl, 
+                    errorData.error || 'Login failed', 'error');
             }
         } catch (error) {
-            Utils.showMessage(this.loginMessageEl, 'Error connecting to server.', 'error');
+            Utils.showMessage(this.loginMessageEl, 
+                'Network error. Please try again.', 'error');
             console.error('Login error:', error);
+        } finally {
+            Utils.removeLoadingState(this.submitButton, originalButtonText);
         }
     }
 
@@ -343,44 +438,33 @@ class AuthManager {
         localStorage.removeItem(CONFIG.USER_ID_KEY);
         localStorage.removeItem(CONFIG.PREMIUM_KEY);
         ApiService.updateNav();
-        window.location.href = '/login';
+        window.location.href = '/';
     }
 }
 
 // Data Consent Handler
 function handleDataConsent() {
-    const consentCheckbox = document.getElementById('dataConsentCheckbox');
-    const consented = consentCheckbox.checked;
+    const checkbox = document.getElementById('dataConsentCheckbox');
+    const message = checkbox.checked ? 
+        'Thank you for helping improve CryptoTronBot!' : 
+        'Your preference has been saved.';
     
-    console.log('User consent for data monetization:', consented);
-    
-    // TODO: Implement actual consent submission
-    // ApiService.fetchWithAuth(`${CONFIG.API_BASE_URL}/user/consent`, {
-    //     method: 'POST',
-    //     body: JSON.stringify({ data_monetization_consent: consented })
-    // }).then(response => response.json()).then(data => {
-    //     alert('Preference saved!');
-    // }).catch(err => console.error('Failed to save consent', err));
-    
-    alert('Consent preference (mock) submitted: ' + consented);
+    alert(message);
+    // In a real implementation, you would send this to your backend
 }
 
-// Initialize application
-document.addEventListener('DOMContentLoaded', () => {
-    const authManager = new AuthManager();
-    const portfolioManager = new PortfolioManager();
+// Initialize everything when DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize managers
+    window.portfolioManager = new PortfolioManager();
+    window.authManager = new AuthManager();
     
-    // Make portfolioManager globally available for delete function
-    window.portfolioManager = portfolioManager;
-    
+    // Update navigation based on auth status
     ApiService.updateNav();
     
-    if (window.location.pathname.includes('/dashboard')) {
-        if (!localStorage.getItem(CONFIG.TOKEN_KEY)) {
-            window.location.href = '/login';
-        } else {
-            portfolioManager.loadAvailableCoins();
-            portfolioManager.loadPortfolio();
-        }
+    // Load portfolio if on dashboard page
+    if (window.location.pathname === '/dashboard') {
+        portfolioManager.loadPortfolio();
+        portfolioManager.loadAvailableCoins();
     }
 });

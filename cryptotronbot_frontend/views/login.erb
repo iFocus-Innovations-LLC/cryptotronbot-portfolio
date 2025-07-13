@@ -1,16 +1,24 @@
-HTML
-
-
-<h2>Login</h2>
-<form id="loginForm">
-    <div>
-        <label for="username">Username:</label>
-        <input type="text" id="username" name="username" required>
+<div class="container">
+    <div class="dashboard-header">
+        <h2>Login to CryptoTronBot</h2>
+        <p>Access your cryptocurrency portfolio</p>
     </div>
-    <div>
-        <label for="password">Password:</label>
-        <input type="password" id="password" name="password" required>
+    
+    <div class="dashboard-content">
+        <div class="holding-form">
+            <h3>Sign In</h3>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="username">Username:</label>
+                    <input type="text" id="username" name="username" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Password:</label>
+                    <input type="password" id="password" name="password" class="form-control" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Login</button>
+            </form>
+            <p id="loginMessage" class="message"></p>
+        </div>
     </div>
-    <button type="submit">Login</button>
-</form>
-<p id="loginMessage"></p>
+</div>

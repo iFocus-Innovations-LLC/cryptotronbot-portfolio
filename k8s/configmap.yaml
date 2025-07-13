@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cryptotronbot-config
+  namespace: cryptotronbot
+data:
+  FLASK_ENV: "production"
+  RACK_ENV: "production"
+  BACKEND_URL: "http://cryptotronbot-backend-service:5000"
+  DATABASE_URL: "sqlite:///instance/cryptotronbot.db"
+  LOG_LEVEL: "INFO" 

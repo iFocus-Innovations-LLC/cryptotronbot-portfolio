@@ -1,0 +1,39 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: cryptotronbot-ingress
+  namespace: cryptotronbot
+  annotations:
+    kubernetes.io/ingress.class: "gce"
+    kubernetes.io/ingress.global-static-ip-name: "cryptotronbot-ip"
+    networking.gke.io/managed-certificates: "cryptotronbot-cert"
+    networking.gke.io/v1beta1.FrontendConfig: "cryptotronbot-frontend-config"
+spec:
+  rules:
+  - host: cryptotronbot.yourdomain.com  # Replace with your domain
+    http:
+      paths:
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: cryptotronbot-backend-service
+            port:
+              number: 5000
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: cryptotronbot-frontend-service
+            port:
+              number: 4567
+---
+apiVersion: networking.gke.io/v1beta1
+kind: FrontendConfig
+metadata:
+  name: cryptotronbot-frontend-config
+  namespace: cryptotronbot
+spec:
+  redirectToHttps:
+    enabled: true
+  sslPolicy: "TLS_1_2" 

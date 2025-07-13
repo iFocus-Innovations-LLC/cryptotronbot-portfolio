@@ -8,18 +8,21 @@ HTML
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CryptoTronBot.io</title>
     <link rel="stylesheet" href="/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=YOUR_ADSENSE_CLIENT_ID" crossorigin="anonymous"></script>
 </head>
 <body>
     <header>
-        <h1>CryptoTronBot.io Portfolio Tracker</h1>
-        <nav>
-            <a href="/">Home</a> |
-            <a href="/login" id="loginLink">Login</a> |
-            <a href="/register" id="registerLink">Register</a> |
-            <a href="/dashboard" id="dashboardLink" style="display:none;">Dashboard</a> |
-            <a href="#" id="logoutLink" style="display:none;">Logout</a>
-        </nav>
+        <div class="header-container">
+            <h1>CryptoTronBot.io Portfolio Tracker</h1>
+            <nav>
+                <a href="/" class="<%= request.path_info == '/' ? 'active' : '' %>">Home</a>
+                <a href="/login" id="loginLink" class="<%= request.path_info == '/login' ? 'active' : '' %>">Login</a>
+                <a href="/register" id="registerLink" class="<%= request.path_info == '/register' ? 'active' : '' %>">Register</a>
+                <a href="/dashboard" id="dashboardLink" style="display:none;" class="<%= request.path_info == '/dashboard' ? 'active' : '' %>">Dashboard</a>
+                <a href="#" id="logoutLink" style="display:none;">Logout</a>
+            </nav>
+        </div>
     </header>
     <main>
         <%= yield %>
