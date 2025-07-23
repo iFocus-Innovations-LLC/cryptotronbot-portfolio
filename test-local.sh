@@ -22,7 +22,7 @@ docker run --rm -d --name test-backend -p 5000:5000 cryptotronbot-backend:test
 sleep 10
 
 # Test health endpoint
-if curl -f http://localhost:5000/api/health > /dev/null 2>&1; then
+if curl -f http://localhost:5009/api/health > /dev/null 2>&1; then
     echo "✅ Backend health check passed"
 else
     echo "❌ Backend health check failed"
