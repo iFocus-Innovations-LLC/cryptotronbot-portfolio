@@ -60,14 +60,20 @@
 
 ### Day 3-4: Banking Integration Research & Setup
 
-#### Day 3: Payment Processor Research
-- [ ] **Evaluate Payment Processors**
-  - [ ] Research Circle (USD Coin issuer - natural fit)
-  - [ ] Research Wyre, Ramp Network, MoonPay
-  - [ ] Compare KYC/AML requirements
-  - [ ] Evaluate compliance features
-  - [ ] Review API documentation and SDKs
-  - [ ] Assess fees and limits
+#### Day 3: Circle Integration Setup (PRIMARY)
+- [ ] **Circle Account Setup**
+  - [ ] Create Circle sandbox account
+  - [ ] Generate API keys (sandbox)
+  - [ ] Review Circle API documentation
+  - [ ] Install Circle Python SDK
+  - [ ] Test API connectivity
+  
+- [ ] **Circle Architecture Planning**
+  - [ ] Review Circle integration guide (`CIRCLE_INTEGRATION.md`)
+  - [ ] Plan wallet management implementation
+  - [ ] Design bank account linking flow
+  - [ ] Plan transfer (USDC → USD) flow
+  - [ ] Design webhook handling
 
 - [ ] **Compliance Research**
   - [ ] Research regulatory requirements (FinCEN, SEC)
@@ -75,18 +81,20 @@
   - [ ] Review state-by-state regulations
   - [ ] Document compliance checklist
 
-#### Day 4: Payment Processor Integration Setup
-- [ ] **Choose Primary Integration**
-  - [ ] Select payment processor (likely Circle or Wyre)
-  - [ ] Set up sandbox/test environment
-  - [ ] Create test accounts and API keys
-  - [ ] Install/configure SDKs
+#### Day 4: Circle Integration Implementation
+- [ ] **Circle SDK Integration**
+  - [ ] Configure Circle API client
+  - [ ] Implement wallet management (create/get wallet)
+  - [ ] Implement bank account linking
+  - [ ] Implement bank account verification flow
+  - [ ] Set up webhook endpoint
   
-- [ ] **Banking API Architecture**
-  - [ ] Design secure transaction flow
-  - [ ] Create abstraction layer for payment processors
-  - [ ] Design transaction state machine
-  - [ ] Plan error handling and retries
+- [ ] **Circle Architecture Implementation**
+  - [ ] Create CircleWalletManager class
+  - [ ] Create CircleBankAccountManager class
+  - [ ] Create CircleTransferManager class
+  - [ ] Implement webhook signature verification
+  - [ ] Design transaction state machine (Circle-specific)
 
 ### Day 5-6: Core Transaction Flow
 
