@@ -1,12 +1,24 @@
 import pytest
-from flask import Flask
-from cryptotronbot_backend.app import app as flask_app
+import sys
+import os
+
+# Add parent directory to path for imports
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
+from app import app, db, User
 
 @pytest.fixture
 def client():
-    flask_app.config['TESTING'] = True
-    with flask_app.test_client() as client:
-        yield client
+    """Create a test client for the Flask app."""
+    app.config['TESTING'] = True
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
+    app.config['JWT_SECRET_KEY'] = 'test-secret-key'
+    
+    with app.app_context():
+        db.create_all()
+        yield app.test_client()
+        db.drop_all()
+        db.session.remove()
 
 def test_register_login_and_me(client):
     # Register

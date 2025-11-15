@@ -20,26 +20,35 @@ def client():
         db.drop_all()
         db.session.remove()
 
-def get_token(client):
-    # Ensure user exists
-    client.post('/api/auth/register', json={
-        'username': 'apitestuser2',
-        'email': 'apitestuser2@example.com',
+def test_full_user_workflow(client):
+    """Test complete workflow: register -> login -> portfolio operations."""
+    # Register a new user
+    response = client.post('/api/auth/register', json={
+        'username': 'integrationuser',
+        'email': 'integrationuser@example.com',
         'password': 'testpassword123'
     })
+    assert response.status_code in (201, 409)  # 201 created or 409 already exists
+    
     # Login
     response = client.post('/api/auth/login', json={
-        'username': 'apitestuser2',
+        'username': 'integrationuser',
         'password': 'testpassword123'
     })
+    assert response.status_code == 200
     data = response.get_json()
-    return data['access_token']
-
-def test_get_portfolio(client):
-    token = get_token(client)
+    assert 'access_token' in data
+    token = data['access_token']
+    
+    # Get portfolio (should be empty initially)
     response = client.get('/api/portfolio', headers={
         'Authorization': f'Bearer {token}'
     })
     assert response.status_code == 200
-    data = response.get_json()
-    assert 'holdings' in data or isinstance(data, list) or isinstance(data, dict) 
+    
+    # Health check
+    response = client.get('/api/health')
+    assert response.status_code == 200
+    health_data = response.get_json()
+    assert health_data['status'] == 'healthy'
+
