@@ -426,6 +426,143 @@ def get_supported_cryptocurrencies():
         return jsonify({"msg": "Could not retrieve cryptocurrency list at this time."}), 503
 
 
+# DeFi & Stablecoin Routes
+@app.route('/api/defi/stablecoins', methods=['GET'])
+def get_stablecoins():
+    """Get list of supported stablecoins"""
+    from utils.defi_api import get_supported_stablecoins
+    try:
+        stablecoins = get_supported_stablecoins()
+        return jsonify(stablecoins), 200
+    except Exception as e:
+        app.logger.error(f"Error fetching stablecoins: {e}")
+        return jsonify({"msg": "Could not retrieve stablecoin list."}), 500
+
+@app.route('/api/defi/stablecoins/<symbol>', methods=['GET'])
+def get_stablecoin_details(symbol):
+    """Get detailed information for a specific stablecoin"""
+    from utils.defi_api import DeFiAPIClient
+    try:
+        client = DeFiAPIClient()
+        market_data = client.get_stablecoin_market_data(symbol.upper())
+        if not market_data:
+            return jsonify({"msg": f"Stablecoin {symbol} not found"}), 404
+        return jsonify(market_data), 200
+    except Exception as e:
+        app.logger.error(f"Error fetching stablecoin details: {e}")
+        return jsonify({"msg": "Could not retrieve stablecoin details."}), 500
+
+@app.route('/api/defi/stablecoins/<symbol>/stability', methods=['GET'])
+def get_stablecoin_stability(symbol):
+    """Get stability analysis for a stablecoin"""
+    from utils.defi_api import DeFiAPIClient
+    try:
+        days = request.args.get('days', 30, type=int)
+        client = DeFiAPIClient()
+        stability_data = client.analyze_stablecoin_stability(symbol.upper(), days=days)
+        if not stability_data:
+            return jsonify({"msg": f"Could not analyze stability for {symbol}"}), 404
+        return jsonify(stability_data), 200
+    except Exception as e:
+        app.logger.error(f"Error analyzing stability: {e}")
+        return jsonify({"msg": "Could not analyze stability."}), 500
+
+@app.route('/api/defi/yield/opportunities', methods=['GET'])
+def get_yield_opportunities():
+    """Get all yield opportunities from DeFi protocols"""
+    from utils.yield_aggregator import yield_aggregator
+    try:
+        asset_filter = request.args.get('asset', None)
+        opportunities = yield_aggregator.get_all_yield_opportunities(asset_filter=asset_filter)
+        return jsonify({
+            "opportunities": opportunities,
+            "count": len(opportunities),
+            "timestamp": datetime.utcnow().isoformat()
+        }), 200
+    except Exception as e:
+        app.logger.error(f"Error fetching yield opportunities: {e}")
+        return jsonify({"msg": "Could not retrieve yield opportunities."}), 500
+
+@app.route('/api/defi/yield/recommendations', methods=['GET'])
+@jwt_required()
+def get_yield_recommendations():
+    """Get personalized yield recommendations based on user portfolio"""
+    from utils.yield_aggregator import yield_aggregator
+    try:
+        current_user_id = get_jwt_identity()
+        user = User.query.get(current_user_id)
+        if not user:
+            return jsonify({"msg": "User not found"}), 404
+        
+        # Get user's holdings
+        holdings = user.holdings.all()
+        portfolio = [{
+            'coin_symbol': h.coin_symbol,
+            'quantity': h.quantity,
+            'coin_api_id': h.coin_api_id
+        } for h in holdings]
+        
+        risk_tolerance = request.args.get('risk', 'medium', type=str)
+        if risk_tolerance not in ['low', 'medium', 'high']:
+            risk_tolerance = 'medium'
+        
+        recommendations = yield_aggregator.get_yield_recommendations(
+            user_portfolio=portfolio,
+            risk_tolerance=risk_tolerance
+        )
+        
+        return jsonify({
+            "recommendations": recommendations,
+            "count": len(recommendations),
+            "risk_tolerance": risk_tolerance,
+            "timestamp": datetime.utcnow().isoformat()
+        }), 200
+    except Exception as e:
+        app.logger.error(f"Error generating recommendations: {e}")
+        return jsonify({"msg": "Could not generate recommendations."}), 500
+
+@app.route('/api/defi/portfolio/yield-potential', methods=['GET'])
+@jwt_required()
+def get_portfolio_yield_potential():
+    """Calculate potential yield for user's portfolio"""
+    from utils.yield_aggregator import yield_aggregator
+    try:
+        current_user_id = get_jwt_identity()
+        user = User.query.get(current_user_id)
+        if not user:
+            return jsonify({"msg": "User not found"}), 404
+        
+        holdings = user.holdings.all()
+        total_potential_yield = 0.0
+        holdings_analysis = []
+        
+        for holding in holdings:
+            if holding.coin_symbol.upper() in ['USDT', 'USDC', 'DAI', 'BUSD', 'FRAX']:
+                opportunities = yield_aggregator.get_all_yield_opportunities(
+                    asset_filter=holding.coin_symbol
+                )
+                if opportunities:
+                    best_apy = opportunities[0].get('apy', 0)
+                    potential_yield = holding.quantity * (best_apy / 100)
+                    total_potential_yield += potential_yield
+                    
+                    holdings_analysis.append({
+                        'coin_symbol': holding.coin_symbol,
+                        'quantity': holding.quantity,
+                        'best_apy': best_apy,
+                        'potential_annual_yield': potential_yield,
+                        'protocol': opportunities[0].get('protocol', 'N/A')
+                    })
+        
+        return jsonify({
+            "total_potential_annual_yield": round(total_potential_yield, 2),
+            "holdings_analysis": holdings_analysis,
+            "timestamp": datetime.utcnow().isoformat()
+        }), 200
+    except Exception as e:
+        app.logger.error(f"Error calculating yield potential: {e}")
+        return jsonify({"msg": "Could not calculate yield potential."}), 500
+
 # User Settings / Preferences
 @app.route('/api/user/preferences/data_consent', methods=['POST'])
 @jwt_required()
