@@ -1,6 +1,7 @@
-pytest
-pytest-cov
-pytest-flask
-flask-testing
-requests-mock
+# Testing dependencies - pinned for security
+pytest>=7.4.0,<8.0.0
+pytest-cov>=4.1.0,<5.0.0
+pytest-flask>=1.2.0,<2.0.0
+flask-testing>=0.9.0,<1.0.0
+requests-mock>=1.11.0,<2.0.0
 

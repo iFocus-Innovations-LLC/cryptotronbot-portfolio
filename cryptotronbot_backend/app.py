@@ -8,12 +8,15 @@ from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identi
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
 import requests # For fetching crypto prices
+import os
 
 # --- Application Configuration ---
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///cryptotronbot.db' # Use PostgreSQL/MySQL in production
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///cryptotronbot.db') # Use PostgreSQL/MySQL in production
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['JWT_SECRET_KEY'] = 'your-super-strong-and-unique-secret-key' # CHANGE THIS!
+# Security: JWT_SECRET_KEY should be set via environment variable in production
+# Generate a secure key: python -c "import secrets; print(secrets.token_urlsafe(32))"
+app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', 'your-super-strong-and-unique-secret-key') # CHANGE THIS IN PRODUCTION!
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=24) # Token expiration
 
 # --- Database Setup ---
