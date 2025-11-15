@@ -11,8 +11,10 @@ We are using **Circle.so** as our primary test platform for the MVP demo. Circle
 ## Circle.so Platform Information
 
 **Platform**: [Circle.so](https://circle.so)  
+**Community URL**: [ifocus1776.circle.so](https://ifocus1776.circle.so)  
+**Trial Period**: 14-day free trial (active)  
 **Recent Feature**: Circle Discover (launched January 16, 2025)  
-**Use Case**: Community-driven testing and feedback collection
+**Use Case**: Community-driven testing and feedback collection for MVP demo
 
 ### Why Circle.so?
 
