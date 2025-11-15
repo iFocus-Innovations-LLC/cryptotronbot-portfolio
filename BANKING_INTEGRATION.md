@@ -18,21 +18,27 @@ Stablecoin Transfer → USD Deposit → Bank Account Credit
 
 ## 🏦 Payment Processor Options
 
-### Option 1: Circle (Recommended for MVP)
+### Option 1: Circle (PRIMARY CHOICE - Selected)
 **Why**: 
-- USD Coin (USDC) issuer - natural integration
-- Established compliance framework
-- Well-documented APIs
-- Good developer support
+- ✅ **USD Coin (USDC) issuer** - Circle created USDC, perfect integration
+- ✅ **Early investor relationship** - Strong partnership opportunity
+- ✅ **User owns USDC** - Natural fit for existing holdings on Coinbase
+- ✅ **Established compliance framework** - Years of regulatory experience
+- ✅ **Well-documented APIs** - Excellent developer support
+- ✅ **Banking relationships** - Direct integration with banking network
+- ✅ **Trust & reliability** - Public company with transparent operations
 
-**API**: Circle API v2  
+**API**: Circle API v1 (v2 coming)  
 **Features**:
+- Native USDC support (we already hold USDC)
 - Bank account linking
-- Wire transfer support
-- Compliance built-in
-- Webhooks for status updates
+- Wire transfer support (USDC → USD → Bank)
+- Compliance built-in (KYC/AML handled)
+- Webhooks for real-time status updates
+- Programmable wallets
 
-**Documentation**: https://developers.circle.com/
+**Documentation**: https://developers.circle.com/  
+**Integration Guide**: See `CIRCLE_INTEGRATION.md`
 
 ### Option 2: Wyre
 **Why**:
