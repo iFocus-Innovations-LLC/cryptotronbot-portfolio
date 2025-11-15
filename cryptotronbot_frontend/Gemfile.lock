@@ -2,9 +2,7 @@ GEM
   remote: https://rubygems.org/
   specs:
     base64 (0.3.0)
-    cgi (0.5.0)
-    erb (2.2.3)
-      cgi
+    erb (6.0.0)
     mustermann (3.0.3)
       ruby2_keywords (~> 0.0.1)
     rack (2.2.17)
