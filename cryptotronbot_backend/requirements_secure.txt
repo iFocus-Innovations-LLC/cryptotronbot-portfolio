@@ -13,7 +13,7 @@ google-auth-httplib2==0.1.1
 google-cloud-storage==2.10.0
 google-cloud-secret-manager==2.16.0
 google-cloud-sql-connector==1.2.0
-google-cloud-kms==2.16.0
+google-cloud-kms==3.7.0
 google-cloud-logging==3.8.0
 google-cloud-monitoring==2.16.0
 google-cloud-error-reporting==1.4.0
